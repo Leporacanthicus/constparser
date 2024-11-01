@@ -34,6 +34,38 @@ public:
     Token() : type(Undefined) {}
 };
 
+class ConstExpr
+{
+public:
+    ConstExpr(const ConstExpr* l, Token::Type t, const ConstExpr* r) : lhs(l), op(t), rhs(r)
+    {
+    }
+
+    const ConstExpr* Left() const { return lhs; }
+    const ConstExpr* Right() const { return rhs; }
+    Token::Type Op() const { return op; }
+
+private:
+    const ConstExpr* lhs;
+    Token::Type op;
+    const ConstExpr* rhs;
+};
+
+unsigned TokenPrio(Token::Type t)
+{
+    switch(t)
+    {
+    case Token::Mult:
+    case Token::Divide:
+	return 2;
+    case Token::Plus:
+    case Token::Minus:
+	return 1;
+    default:
+	return 0;
+    }
+}
+
 Token GetNextToken()
 {
     std::string v;
@@ -173,7 +205,11 @@ double ParseValue()
 		cout << "Invalid variable " << t.value << endl;
 	    NextToken();
 	}
-	
+
+	case Token::Equal:
+	{
+	    cout << "Error: Unexpected '='" << endl;
+	}
 	default:
 	    break;
 	}
