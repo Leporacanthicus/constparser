@@ -157,7 +157,7 @@ bool Expect(Token::Type ty, Token& t)
 {
     t = GetToken();
     NextToken();
-    if (t.type != ty)
+    if (t.type != ty && t.type != Token::EndOfFile)
     {
 	cout << "Invalid token, expected: " << ty << " got " << t.type << endl;
 	return false;
@@ -172,10 +172,6 @@ double ParseValue()
     do
     {
 	t = GetToken();
-	if (t.type == Token::EndOfFile)
-	{
-	    return -1;
-	}
 	cout << "Token: " << t.type << " value:" << t.value << endl;
 	switch (t.type)
 	{
@@ -202,12 +198,17 @@ double ParseValue()
 	    else
 		cout << "Invalid variable " << t.value << endl;
 	    NextToken();
+	    break;
 	}
 
 	case Token::Equal:
 	{
 	    cout << "Error: Unexpected '='" << endl;
+	    break;
 	}
+	case Token::EndOfFile:
+	    return -1;
+
 	default:
 	    break;
 	}
@@ -217,9 +218,9 @@ double ParseValue()
 
 void Parse()
 {
-    for (;;)
+    Token v;
+    do
     {
-	Token v;
 	if (Expect(Token::Varname, v))
 	{
 	    Token e;
@@ -231,11 +232,7 @@ void Parse()
 		cout << "val=" << val << endl;
 	    }
 	}
-	if (v.type == Token::EndOfFile)
-	{
-	    return;
-	}
-    }
+    } while (v.type != Token::EndOfFile);
 }
 
 int main()
