@@ -1,20 +1,20 @@
+#include <cctype>
 #include <cstdio>
 #include <iostream>
-#include <sstream>
-#include <cctype>
 #include <map>
+#include <sstream>
 
 using namespace std;
 
 typedef map<string, double> varmap;
-varmap vars;
+varmap                      vars;
 
 class Token
 {
 public:
     enum Type
     {
-	Varname, 
+	Varname,
 	Number,
 	Plus,
 	Minus,
@@ -27,7 +27,7 @@ public:
 	EndOfFile,
 	Undefined
     };
-    Type type;
+    Type        type;
     std::string value;
     Token(const std::string& v, Type t) : type(t), value(v) {}
     Token(Type t) : type(t) {}
@@ -37,23 +37,21 @@ public:
 class ConstExpr
 {
 public:
-    ConstExpr(const ConstExpr* l, Token::Type t, const ConstExpr* r) : lhs(l), op(t), rhs(r)
-    {
-    }
+    ConstExpr(const ConstExpr* l, Token::Type t, const ConstExpr* r) : lhs(l), op(t), rhs(r) {}
 
     const ConstExpr* Left() const { return lhs; }
     const ConstExpr* Right() const { return rhs; }
-    Token::Type Op() const { return op; }
+    Token::Type      Op() const { return op; }
 
 private:
     const ConstExpr* lhs;
-    Token::Type op;
+    Token::Type      op;
     const ConstExpr* rhs;
 };
 
 unsigned TokenPrio(Token::Type t)
 {
-    switch(t)
+    switch (t)
     {
     case Token::Mult:
     case Token::Divide:
@@ -69,7 +67,7 @@ unsigned TokenPrio(Token::Type t)
 Token GetNextToken()
 {
     std::string v;
-    while(1)
+    while (1)
     {
 	int ch = cin.get();
 	if (ch == EOF)
@@ -82,7 +80,7 @@ Token GetNextToken()
 	}
 	if (isalpha(ch))
 	{
-	    while(isalnum(ch))
+	    while (isalnum(ch))
 	    {
 		v += ch;
 		ch = cin.get();
@@ -92,7 +90,7 @@ Token GetNextToken()
 	}
 	if (isdigit(ch))
 	{
-	    while(isdigit(ch))
+	    while (isdigit(ch))
 	    {
 		v += ch;
 		ch = cin.get();
@@ -100,9 +98,9 @@ Token GetNextToken()
 	    cin.putback(ch);
 	    return Token(v, Token::Number);
 	}
-	switch(ch)
+	switch (ch)
 	{
-	case '+': 
+	case '+':
 	    return Token(Token::Plus);
 	case '-':
 	    return Token(Token::Minus);
@@ -126,7 +124,7 @@ Token GetNextToken()
 }
 
 Token curToken;
-bool curValid = false;
+bool  curValid = false;
 
 Token GetToken()
 {
@@ -145,7 +143,7 @@ void NextToken()
 
 double ToDouble(const std::string& val)
 {
-    double d;
+    double       d;
     stringstream ss(val);
     if (ss >> d)
     {
@@ -169,7 +167,7 @@ bool Expect(Token::Type ty, Token& t)
 
 double ParseValue()
 {
-    Token t;
+    Token  t;
     double lhs;
     do
     {
@@ -179,7 +177,7 @@ double ParseValue()
 	    return -1;
 	}
 	cout << "Token: " << t.type << " value:" << t.value << endl;
-	switch(t.type)
+	switch (t.type)
 	{
 	case Token::Number:
 	    lhs = ToDouble(t.value);
@@ -198,7 +196,7 @@ double ParseValue()
 
 	case Token::Varname:
 	{
-	    varmap::iterator it =  vars.find(t.value);
+	    varmap::iterator it = vars.find(t.value);
 	    if (it != vars.end())
 		lhs = it->second;
 	    else
@@ -213,13 +211,13 @@ double ParseValue()
 	default:
 	    break;
 	}
-    } while(t.type != Token::SemiColon);
+    } while (t.type != Token::SemiColon);
     return lhs;
 }
 
 void Parse()
 {
-    for(;;)
+    for (;;)
     {
 	Token v;
 	if (Expect(Token::Varname, v))
@@ -239,7 +237,6 @@ void Parse()
 	}
     }
 }
-
 
 int main()
 {
