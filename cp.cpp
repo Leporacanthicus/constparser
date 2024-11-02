@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cctype>
 #include <cstdio>
 #include <iostream>
@@ -45,39 +46,36 @@ public:
 	Constant,
 	Variable,
 	Expr,
+	Unknown
     };
 
     Value(double d) : type(Constant), value(d) {}
     Value(const std::string& s) : type(Variable), varname(s) {}
     Value(ConstExpr* e) : type(Expr), expr(e) {}
+    Value() : type(Unknown) {}
+
+    ~Value() {}
 
     double operator()() const;
 
 private:
     Type type;
-    union
-    {
-	std::string varname;
-	double      value;
-	ConstExpr*  expr;
-    };
+    std::string varname;
+    double      value;
+    ConstExpr*  expr;
 };
 
 class ConstExpr
 {
 public:
-    ConstExpr(const Value* l, Token::Type t, const Value* r) : lhs(l), op(t), rhs(r) {}
-
-    const Value* Left() const { return lhs; }
-    const Value* Right() const { return rhs; }
-    Token::Type  Op() const { return op; }
+    ConstExpr(const Value l, Token::Type t, const Value r) : lhs(l), op(t), rhs(r) {}
 
     double Evaluate() const;
 
 private:
-    const Value* lhs;
+    const Value  lhs;
     Token::Type  op;
-    const Value* rhs;
+    const Value  rhs;
 };
 
 std::tuple<bool, double> FindVar(const std::string& name)
@@ -94,8 +92,11 @@ double ConstExpr::Evaluate() const
     switch (op)
     {
     case Token::Plus:
-	return (*lhs)() + (*rhs)();
+	return lhs() + rhs();
+    case Token::Minus:
+	return lhs() - rhs();
     default:
+	cout << "Unknown operation";
 	return 0;
     }
 }
@@ -118,6 +119,9 @@ double Value::operator()() const
     {
 	return expr->Evaluate();
     }
+    case Unknown:
+	assert(0 && "Uninitielized value");
+	return 0.0;
     }
 }
 
@@ -237,10 +241,10 @@ bool Expect(Token::Type ty, Token& t)
     return true;
 }
 
-double ParseValue()
+Value ParseValue()
 {
     Token  t;
-    double lhs;
+    Value  lhs;
     do
     {
 	t = GetToken();
@@ -248,25 +252,19 @@ double ParseValue()
 	switch (t.type)
 	{
 	case Token::Number:
-	    lhs = ToDouble(t.value);
+	    lhs = Value(ToDouble(t.value));
 	    NextToken();
 	    break;
 
 	case Token::Plus:
-	    NextToken();
-	    lhs += ParseValue();
-	    break;
-
 	case Token::Minus:
 	    NextToken();
-	    lhs -= ParseValue();
+	    lhs = Value(new ConstExpr(lhs, t.type, ParseValue()));
 	    break;
 
 	case Token::Varname:
 	{
-	    auto [found, value] = FindVar(t.value);
-	    if (found)
-		lhs = value;
+	    lhs = Value(t.value);
 	    NextToken();
 	    break;
 	}
@@ -276,8 +274,9 @@ double ParseValue()
 	    cout << "Error: Unexpected '='" << endl;
 	    break;
 	}
+
 	case Token::EndOfFile:
-	    return -1;
+	    return Value(-1);
 
 	default:
 	    break;
@@ -296,10 +295,10 @@ void Parse()
 	    Token e;
 	    if (Expect(Token::Equal, e))
 	    {
-		double val = ParseValue();
+		Value val = ParseValue();
 		NextToken();
-		vars[v.value] = val;
-		cout << "val=" << val << endl;
+		vars[v.value] = val();
+		cout << "val=" << val() << endl;
 	    }
 	}
     } while (v.type != Token::EndOfFile);
