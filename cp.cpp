@@ -47,7 +47,11 @@ public:
 	Expr,
     };
 
-    double operator()();
+    Value(double d) : type(Constant), value(d) {}
+    Value(const std::string& s) : type(Variable), varname(s) {}
+    Value(ConstExpr* e) : type(Expr), expr(e) {}
+
+    double operator()() const;
 
 private:
     Type type;
@@ -62,16 +66,18 @@ private:
 class ConstExpr
 {
 public:
-    ConstExpr(const ConstExpr* l, Token::Type t, const ConstExpr* r) : lhs(l), op(t), rhs(r) {}
+    ConstExpr(const Value* l, Token::Type t, const Value* r) : lhs(l), op(t), rhs(r) {}
 
-    const ConstExpr* Left() const { return lhs; }
-    const ConstExpr* Right() const { return rhs; }
-    Token::Type      Op() const { return op; }
+    const Value* Left() const { return lhs; }
+    const Value* Right() const { return rhs; }
+    Token::Type  Op() const { return op; }
+
+    double Evaluate() const;
 
 private:
-    const ConstExpr* lhs;
-    Token::Type      op;
-    const ConstExpr* rhs;
+    const Value* lhs;
+    Token::Type  op;
+    const Value* rhs;
 };
 
 std::tuple<bool, double> FindVar(const std::string& name)
@@ -83,7 +89,18 @@ std::tuple<bool, double> FindVar(const std::string& name)
     return { false, 0.0 };
 }
 
-double Value::operator()()
+double ConstExpr::Evaluate() const
+{
+    switch (op)
+    {
+    case Token::Plus:
+	return (*lhs)() + (*rhs)();
+    default:
+	return 0;
+    }
+}
+
+double Value::operator()() const
 {
     switch (type)
     {
@@ -96,6 +113,10 @@ double Value::operator()()
 	if (found)
 	    return value;
 	return 0.0;
+    }
+    case Expr:
+    {
+	return expr->Evaluate();
     }
     }
 }
