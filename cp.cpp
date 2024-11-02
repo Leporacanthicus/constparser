@@ -3,6 +3,7 @@
 #include <iostream>
 #include <map>
 #include <sstream>
+#include <tuple>
 
 using namespace std;
 
@@ -34,6 +35,30 @@ public:
     Token() : type(Undefined) {}
 };
 
+class ConstExpr;
+
+class Value
+{
+public:
+    enum Type
+    {
+	Constant,
+	Variable,
+	Expr,
+    };
+
+    double operator()();
+
+private:
+    Type type;
+    union
+    {
+	std::string varname;
+	double      value;
+	ConstExpr*  expr;
+    };
+};
+
 class ConstExpr
 {
 public:
@@ -48,6 +73,32 @@ private:
     Token::Type      op;
     const ConstExpr* rhs;
 };
+
+std::tuple<bool, double> FindVar(const std::string& name)
+{
+    varmap::iterator it = vars.find(name);
+    if (it != vars.end())
+	return { true, it->second };
+    cout << "Invalid variable " << name << endl;
+    return { false, 0.0 };
+}
+
+double Value::operator()()
+{
+    switch (type)
+    {
+    case Constant:
+	return value;
+
+    case Variable:
+    {
+	auto [found, value] = FindVar(varname);
+	if (found)
+	    return value;
+	return 0.0;
+    }
+    }
+}
 
 unsigned TokenPrio(Token::Type t)
 {
@@ -192,11 +243,9 @@ double ParseValue()
 
 	case Token::Varname:
 	{
-	    varmap::iterator it = vars.find(t.value);
-	    if (it != vars.end())
-		lhs = it->second;
-	    else
-		cout << "Invalid variable " << t.value << endl;
+	    auto [found, value] = FindVar(t.value);
+	    if (found)
+		lhs = value;
 	    NextToken();
 	    break;
 	}

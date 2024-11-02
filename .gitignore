@@ -1,0 +1,12 @@
+*
+!*.*
+!test
+*.o
+*.s
+*.a
+*~
+a.out
+.depends*
+constparser
+\#*
+.\#*
