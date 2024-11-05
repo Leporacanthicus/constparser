@@ -6,10 +6,9 @@
 #include <sstream>
 #include <tuple>
 
-using namespace std;
-
-typedef map<string, double> varmap;
+using varmap = std::map<std::string, double>;
 varmap                      vars;
+bool                        verbose = false;
 
 class Token
 {
@@ -83,7 +82,7 @@ std::tuple<bool, double> FindVar(const std::string& name)
     varmap::iterator it = vars.find(name);
     if (it != vars.end())
 	return { true, it->second };
-    cout << "Invalid variable " << name << endl;
+    std::cout << "Invalid variable " << name << std::endl;
     return { false, 0.0 };
 }
 
@@ -96,7 +95,7 @@ double ConstExpr::Evaluate() const
     case Token::Minus:
 	return lhs() - rhs();
     default:
-	cout << "Unknown operation";
+	std::cout << "Unknown operation: " << op << std::endl;
 	return 0;
     }
 }
@@ -145,7 +144,7 @@ Token GetNextToken()
     std::string v;
     while (1)
     {
-	int ch = cin.get();
+	int ch = std::cin.get();
 	if (ch == EOF)
 	{
 	    return Token::EndOfFile;
@@ -159,9 +158,9 @@ Token GetNextToken()
 	    while (isalnum(ch))
 	    {
 		v += ch;
-		ch = cin.get();
+		ch = std::cin.get();
 	    }
-	    cin.putback(ch);
+	    std::cin.putback(ch);
 	    return Token(v, Token::Varname);
 	}
 	if (isdigit(ch))
@@ -169,9 +168,9 @@ Token GetNextToken()
 	    while (isdigit(ch))
 	    {
 		v += ch;
-		ch = cin.get();
+		ch = std::cin.get();
 	    }
-	    cin.putback(ch);
+	    std::cin.putback(ch);
 	    return Token(v, Token::Number);
 	}
 	switch (ch)
@@ -193,7 +192,8 @@ Token GetNextToken()
 	case ';':
 	    return Token(Token::SemiColon);
 	default:
-	    cout << "Uh? found character " << ch << " which doesn't seem to be useful here" << endl;
+	    std::cout << "Uh? found character '" << ch << "' which doesn't seem to be useful here"
+	              << std::endl;
 	    break;
 	}
     }
@@ -220,12 +220,12 @@ void NextToken()
 double ToDouble(const std::string& val)
 {
     double       d;
-    stringstream ss(val);
+    std::stringstream ss(val);
     if (ss >> d)
     {
 	return d;
     }
-    cout << "Invalid number, replacing with -1" << endl;
+    std::cout << "Invalid number, replacing with -1" << std::endl;
     return -1.0;
 }
 
@@ -235,7 +235,7 @@ bool Expect(Token::Type ty, Token& t)
     NextToken();
     if (t.type != ty && t.type != Token::EndOfFile)
     {
-	cout << "Invalid token, expected: " << ty << " got " << t.type << endl;
+	std::cout << "Invalid token, expected: " << ty << " got " << t.type << std::endl;
 	return false;
     }
     return true;
@@ -248,7 +248,10 @@ Value ParseValue()
     do
     {
 	t = GetToken();
-	cout << "Token: " << t.type << " value:" << t.value << endl;
+	if (verbose)
+	{
+	    std::cout << "Token: " << t.type << " value:" << t.value << std::endl;
+	}
 	switch (t.type)
 	{
 	case Token::Number:
@@ -271,7 +274,7 @@ Value ParseValue()
 
 	case Token::Equal:
 	{
-	    cout << "Error: Unexpected '='" << endl;
+	    std::cout << "Error: Unexpected '='" << std::endl;
 	    break;
 	}
 
@@ -298,13 +301,44 @@ void Parse()
 		Value val = ParseValue();
 		NextToken();
 		vars[v.value] = val();
-		cout << "val=" << val() << endl;
+		std::cout << "val=" << val() << std::endl;
 	    }
 	}
     } while (v.type != Token::EndOfFile);
 }
 
-int main()
+void Usage(const std::string& msg, const std::string& option = "")
 {
+    if (msg != "")
+    {
+	std::cerr << msg;
+	if (option != "")
+	{
+	    std::cerr << ":" << option;
+	}
+	std::cerr << "\n\n";
+    }
+    std::cerr << "Options available:\n";
+    std::cerr << "-v     Enable verbose mode" << std::endl;
+}
+
+int main(int argc, char** argv)
+{
+    for (int i = 1; i < argc; i++)
+    {
+	if (argv[i][0] != '-')
+	{
+	    Usage("Not an option", argv[i]);
+	    exit(1);
+	}
+	const std::string a = argv[i];
+	if (a == "-v")
+	{
+	    verbose = true;
+	}
+	else
+	    Usage("Invalid option", a);
+    }
+
     Parse();
 }
