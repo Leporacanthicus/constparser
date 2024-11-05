@@ -7,8 +7,6 @@
 #include <tuple>
 
 using varmap = std::map<std::string, double>;
-varmap                      vars;
-bool                        verbose = false;
 
 class Token
 {
@@ -76,6 +74,11 @@ private:
     Token::Type  op;
     const Value  rhs;
 };
+
+varmap vars;
+bool   verbose = false;
+Token  curToken;
+bool   curValid = false;
 
 std::tuple<bool, double> FindVar(const std::string& name)
 {
@@ -198,9 +201,6 @@ Token GetNextToken()
 	}
     }
 }
-
-Token curToken;
-bool  curValid = false;
 
 Token GetToken()
 {
