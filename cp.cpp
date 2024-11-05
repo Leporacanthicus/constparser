@@ -275,13 +275,20 @@ Value ParseValue()
 	case Token::Equal:
 	{
 	    std::cout << "Error: Unexpected '='" << std::endl;
+	    NextToken();
 	    break;
 	}
 
 	case Token::EndOfFile:
 	    return Value(-1);
 
+	case Token::SemiColon:
+	    // Do nothing, to avoid falling into default.
+	    break;
+
 	default:
+	    std::cout << "Error, unknown token" << std::endl;
+	    NextToken();
 	    break;
 	}
     } while (t.type != Token::SemiColon);
