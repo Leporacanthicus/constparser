@@ -34,6 +34,7 @@ public:
 };
 
 class ConstExpr;
+class ConstUnaryExpr;
 
 class Value
 {
@@ -43,12 +44,14 @@ public:
 	Constant,
 	Variable,
 	Expr,
+	UnaryExpr,
 	Unknown
     };
 
     Value(double d) : type(Constant), value(d) {}
     Value(const std::string& s) : type(Variable), varname(s) {}
     Value(ConstExpr* e) : type(Expr), expr(e) {}
+    Value(ConstUnaryExpr* u) : type(UnaryExpr), unary(u) {}
     Value() : type(Unknown) {}
 
     ~Value() {}
@@ -60,6 +63,19 @@ private:
     std::string varname;
     double      value;
     ConstExpr*  expr;
+    ConstUnaryExpr* unary;
+};
+
+class ConstUnaryExpr
+{
+public:
+    ConstUnaryExpr(Token::Type t, const Value r) : op(t), rhs(r) {}
+
+    double Evaluate() const;
+
+private:
+    Token::Type op;
+    const Value rhs;
 };
 
 class ConstExpr
@@ -87,6 +103,21 @@ std::tuple<bool, double> FindVar(const std::string& name)
 	return { true, it->second };
     std::cout << "Invalid variable " << name << std::endl;
     return { false, 0.0 };
+}
+
+double ConstUnaryExpr::Evaluate() const
+{
+    switch (op)
+    {
+    case Token::Plus:
+	return rhs();
+
+    case Token::Minus:
+	return -rhs();
+    default:
+	std::cout << "Unknown operation: " << op << std::endl;
+	return 0;
+    }
 }
 
 double ConstExpr::Evaluate() const
@@ -120,6 +151,10 @@ double Value::operator()() const
     case Expr:
     {
 	return expr->Evaluate();
+    }
+    case UnaryExpr:
+    {
+	return unary->Evaluate();
     }
     case Unknown:
 	assert(0 && "Uninitielized value");
@@ -241,36 +276,55 @@ bool Expect(Token::Type ty, Token& t)
     return true;
 }
 
+Value ParseValue();
+
+Value ParseSimpleExpr()
+{
+    Token t = GetToken();
+    switch (t.type)
+    {
+    case Token::Number:
+	NextToken();
+	return Value(ToDouble(t.value));
+
+    case Token::Varname:
+	NextToken();
+	return Value(t.value);
+
+    case Token::Plus:
+    case Token::Minus:
+	NextToken();
+	return Value(new ConstUnaryExpr(t.type, ParseValue()));
+
+    case Token::EndOfFile:
+	break;
+
+    default:
+	std::cout << "Unknown value" << std::endl;
+	break;
+    }
+    return Value(0.0);
+}
+
 Value ParseValue()
 {
-    Token  t;
-    Value  lhs;
-    do
+    for (;;)
     {
-	t = GetToken();
+
+	Value lhs = ParseSimpleExpr();
+
+	Token t = GetToken();
+
 	if (verbose)
 	{
 	    std::cout << "Token: " << t.type << " value:" << t.value << std::endl;
 	}
 	switch (t.type)
 	{
-	case Token::Number:
-	    lhs = Value(ToDouble(t.value));
-	    NextToken();
-	    break;
-
 	case Token::Plus:
 	case Token::Minus:
 	    NextToken();
-	    lhs = Value(new ConstExpr(lhs, t.type, ParseValue()));
-	    break;
-
-	case Token::Varname:
-	{
-	    lhs = Value(t.value);
-	    NextToken();
-	    break;
-	}
+	    return Value(new ConstExpr(lhs, t.type, ParseValue()));
 
 	case Token::Equal:
 	{
@@ -283,16 +337,14 @@ Value ParseValue()
 	    return Value(-1);
 
 	case Token::SemiColon:
-	    // Do nothing, to avoid falling into default.
-	    break;
+	    return lhs;
 
 	default:
 	    std::cout << "Error, unknown token" << std::endl;
 	    NextToken();
 	    break;
 	}
-    } while (t.type != Token::SemiColon);
-    return lhs;
+    }
 }
 
 void Parse()
