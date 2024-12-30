@@ -31,6 +31,8 @@ public:
     Token(const std::string& v, Type t) : type(t), value(v) {}
     Token(Type t) : type(t) {}
     Token() : type(Undefined) {}
+    unsigned    Precedence();
+    std::string ToString() const;
 };
 
 class ConstExpr;
@@ -91,10 +93,47 @@ private:
     const Value  rhs;
 };
 
+std::ostream& operator<<(std::ostream& o, const Token& x)
+{
+    o << x.ToString();
+    return o;
+}
+
 varmap vars;
 bool   verbose = false;
 Token  curToken;
 bool   curValid = false;
+
+std::string Token::ToString() const
+{
+    switch (type)
+    {
+    case Varname:
+	return "String: '" + value + "'";
+    case Number:
+	return "Number: " + value;
+    case Plus:
+	return "Plus";
+    case Minus:
+	return "Minus";
+    case Mult:
+	return "Mult";
+    case Divide:
+	return "Divide";
+    case LParen:
+	return "LParen";
+    case RParen:
+	return "RParen";
+    case Equal:
+	return "Equal";
+    case SemiColon:
+	return "SemiColon";
+    case EndOfFile:
+	return "EndOfFile";
+    case Undefined:
+	return "Undefined";
+    }
+}
 
 std::tuple<bool, double> FindVar(const std::string& name)
 {
@@ -114,6 +153,7 @@ double ConstUnaryExpr::Evaluate() const
 
     case Token::Minus:
 	return -rhs();
+
     default:
 	std::cout << "Unknown operation: " << op << std::endl;
 	return 0;
@@ -128,6 +168,10 @@ double ConstExpr::Evaluate() const
 	return lhs() + rhs();
     case Token::Minus:
 	return lhs() - rhs();
+    case Token::Mult:
+	return lhs() * rhs();
+    case Token::Divide:
+	return lhs() / rhs();
     default:
 	std::cout << "Unknown operation: " << op << std::endl;
 	return 0;
@@ -162,9 +206,9 @@ double Value::operator()() const
     }
 }
 
-unsigned TokenPrio(Token::Type t)
+unsigned Token::Precedence()
 {
-    switch (t)
+    switch (type)
     {
     case Token::Mult:
     case Token::Divide:
@@ -180,7 +224,7 @@ unsigned TokenPrio(Token::Type t)
 Token GetNextToken()
 {
     std::string v;
-    while (1)
+    for (;;)
     {
 	int ch = std::cin.get();
 	if (ch == EOF)
@@ -270,13 +314,13 @@ bool Expect(Token::Type ty, Token& t)
     NextToken();
     if (t.type != ty && t.type != Token::EndOfFile)
     {
-	std::cout << "Invalid token, expected: " << ty << " got " << t.type << std::endl;
+	std::cout << "Invalid token, expected: " << Token(ty) << " got " << t << std::endl;
 	return false;
     }
     return true;
 }
 
-Value ParseValue();
+Value ParseValue(int prec);
 
 Value ParseSimpleExpr()
 {
@@ -294,9 +338,10 @@ Value ParseSimpleExpr()
     case Token::Plus:
     case Token::Minus:
 	NextToken();
-	return Value(new ConstUnaryExpr(t.type, ParseValue()));
+	return Value(new ConstUnaryExpr(t.type, ParseSimpleExpr()));
 
     case Token::EndOfFile:
+    case Token::SemiColon:
 	break;
 
     default:
@@ -306,25 +351,45 @@ Value ParseSimpleExpr()
     return Value(0.0);
 }
 
-Value ParseValue()
+Value ParseRhs(Value lhs, unsigned prec)
 {
     for (;;)
     {
-
-	Value lhs = ParseSimpleExpr();
-
 	Token t = GetToken();
+
+	if (t.type == Token::SemiColon)
+	{
+	    return lhs;
+	}
+
+	unsigned curPrec = t.Precedence();
+	if (curPrec < prec)
+	{
+	    return lhs;
+	}
+	NextToken();
+
+	Value rhs = ParseSimpleExpr();
 
 	if (verbose)
 	{
-	    std::cout << "Token: " << t.type << " value:" << t.value << std::endl;
+	    std::cout << "Token: " << t << std::endl;
 	}
 	switch (t.type)
 	{
 	case Token::Plus:
 	case Token::Minus:
-	    NextToken();
-	    return Value(new ConstExpr(lhs, t.type, ParseValue()));
+	case Token::Mult:
+	case Token::Divide:
+	{
+	    unsigned next = t.Precedence();
+	    if (curPrec < next)
+	    {
+		rhs = ParseRhs(rhs, prec + 1);
+	    }
+	    lhs = Value(new ConstExpr(lhs, t.type, rhs));
+	    break;
+	}
 
 	case Token::Equal:
 	{
@@ -347,6 +412,16 @@ Value ParseValue()
     }
 }
 
+Value ParseExpr()
+{
+    Value lhs = ParseSimpleExpr();
+    if (GetToken().type == Token::SemiColon)
+    {
+	return lhs;
+    }
+    return ParseRhs(lhs, 0);
+}
+
 void Parse()
 {
     Token v;
@@ -354,10 +429,14 @@ void Parse()
     {
 	if (Expect(Token::Varname, v))
 	{
+	    if (verbose)
+	    {
+		std::cout << v << std::endl;
+	    }
 	    Token e;
 	    if (Expect(Token::Equal, e))
 	    {
-		Value val = ParseValue();
+		Value val = ParseExpr();
 		NextToken();
 		vars[v.value] = val();
 		std::cout << "val=" << val() << std::endl;
@@ -396,7 +475,9 @@ int main(int argc, char** argv)
 	    verbose = true;
 	}
 	else
+	{
 	    Usage("Invalid option", a);
+	}
     }
 
     Parse();
