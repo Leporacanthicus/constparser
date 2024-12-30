@@ -382,10 +382,10 @@ Value ParseRhs(Value lhs, unsigned prec)
 	case Token::Mult:
 	case Token::Divide:
 	{
-	    unsigned next = t.Precedence();
+	    unsigned next = GetToken().Precedence();
 	    if (curPrec < next)
 	    {
-		rhs = ParseRhs(rhs, prec + 1);
+		rhs = ParseRhs(rhs, next);
 	    }
 	    lhs = Value(new ConstExpr(lhs, t.type, rhs));
 	    break;
